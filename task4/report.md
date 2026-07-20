@@ -226,9 +226,9 @@ The original `deployment.yaml` contains plaintext secrets committed to Git:
 ```yaml
 env:
   - name: STRIPE_API_KEY
-    value: "sk_live_9f3a2b7c1e4d8REDACTED"
+    value: "[REDACTED_STRIPE_KEY]"
   - name: DB_PASSWORD
-    value: "P@ssw0rd123"
+    value: "[REDACTED_DB_PASS]"
 ```
 Even if removed from the current branch, these remain in Git history and can be recovered with `git log -p`.
 

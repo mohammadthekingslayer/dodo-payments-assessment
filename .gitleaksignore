@@ -1,0 +1,9 @@
+# .gitleaksignore
+[allowlist]
+paths = [
+    '''task4/report\.md''',
+    '''task1/README\.md''',
+    '''task4/proof_of_execution\.md''',
+    '''task1/manifests/deployment\.yaml''',
+    '''ledger-api-assignment/.*'''
+]
