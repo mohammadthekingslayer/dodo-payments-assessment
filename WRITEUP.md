@@ -13,6 +13,36 @@ Upon joining, I evaluated the `ledger-api` microservice. Because this service ha
 
 My primary objective was to transform this into a production-grade, zero-trust environment using a **Defense in Depth** strategy—ensuring that if one security layer fails, another is there to catch the attacker.
 
+## Architecture Diagram
+
+```mermaid
+graph TD
+    subidx[CI/CD & GitOps Pipeline]
+    Developer[Developer] -->|git push| GitHub[GitHub Repo]
+    GitHub -->|Triggers| Actions[GitHub Actions]
+    Actions -->|1. Gitleaks / Semgrep| Gates[Security Gates]
+    Gates -->|2. Trivy Scan| ImageBuild[Build Image]
+    ImageBuild -->|3. Cosign| GHCR[GHCR Registry - Signed]
+    
+    ArgoCD[ArgoCD GitOps] -->|Pulls Manifests| GitHub
+    ArgoCD -->|Syncs & Heals| K8s[Kubernetes Cluster]
+    GHCR -->|Image Pull| K8s
+    
+    subgraph "PCI DSS Scope (Cardholder Data Environment)"
+        Ingress[Istio Ingress Gateway\nTLS Termination] -->|mTLS| LedgerAPI[ledger-api Pod]
+        
+        subgraph "Defense Layers"
+            Kyverno[Kyverno Admission]
+            Istio[Istio Authz / mTLS]
+            NetPol[K8s NetworkPolicy]
+        end
+        
+        Neighbour[Reporting Service] -->|mTLS\nSPIFFE Identity Allow| LedgerAPI
+    end
+    
+    Attacker[Attacker] -.->|Blocked by NetPol/Istio| LedgerAPI
+```
+
 ## 2. Workload Hardening (Defense Layer 1: The Pod)
 Security must start as close to the application as possible. I locked down the `securityContext` to prevent privilege escalation:
 - Forced non-root execution and dropped all Linux capabilities.
