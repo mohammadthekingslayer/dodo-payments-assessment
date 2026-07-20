@@ -4,8 +4,14 @@ metadata:
   name: dev-role
   namespace: payments
 rules:
-- apiGroups: ["", "apps", "networking.k8s.io"]
-  resources: ["pods", "pods/log", "deployments", "services", "ingress"]
+- apiGroups: [""]
+  resources: ["pods", "pods/log", "services", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
   verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -14,9 +20,15 @@ metadata:
   name: operator-role
   namespace: payments
 rules:
-- apiGroups: ["", "apps", "networking.k8s.io"]
-  resources: ["pods", "deployments", "services", "configmaps"]
-  verbs: ["get", "list", "watch", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "update", "patch", "create"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -24,6 +36,10 @@ metadata:
   name: admin-role
   namespace: payments
 rules:
-- apiGroups: ["*"]
-  resources: ["*"]
-  verbs: ["*"]
+- apiGroups: ["", "apps", "batch", "networking.k8s.io"]
+  resources: ["pods", "services", "configmaps", "secrets", "deployments",
+              "replicasets", "jobs", "ingresses", "networkpolicies"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings"]
+  verbs: ["get", "list", "watch"]

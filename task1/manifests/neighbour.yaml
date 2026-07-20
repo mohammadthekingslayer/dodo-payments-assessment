@@ -29,7 +29,7 @@ spec:
       containers:
         - name: client
           image: curlimages/curl:8.8.0
-          command: ["sleep", "infinity"]
+          command: ["sh", "-c", "while true; do sleep 30; done"]
           securityContext:
             runAsNonRoot: true
             runAsUser: 10001
@@ -44,3 +44,34 @@ spec:
             limits:
               cpu: "100m"
               memory: "128Mi"
+          livenessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - "true"
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            exec:
+              command:
+              - sh
+              - -c
+              - "true"
+            initialDelaySeconds: 3
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reporting
+  namespace: payments
+  labels:
+    app: reporting
+spec:
+  selector:
+    app: reporting
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

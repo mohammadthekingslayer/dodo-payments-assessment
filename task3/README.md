@@ -1,12 +1,118 @@
-# Task 3: Service Mesh & Zero-Trust (Istio)
+# Task 3 — Service Mesh & Zero-Trust (Istio)
 
 ## Approach and Design Decisions
 
-1. **mTLS STRICT**: The `peer-auth.yaml` configures Istio to reject any plaintext traffic targeting the `payments` namespace, ensuring all inter-service communication is encrypted and mutually authenticated.
-2. **Workload Identity (SPIFFE)**: Certificates are issued to workloads based on their Kubernetes `ServiceAccount`. Istiod acts as the Certificate Authority (CA) – it serves as the **trust root** for the mesh. When a pod starts, the Istio sidecar generates a private key and CSR, and sends it to Istiod via the SDS (Secret Discovery Service) API. Istiod validates the Kubernetes token, signs the certificate containing the SPIFFE ID (e.g., `spiffe://cluster.local/ns/payments/sa/reporting`), and returns it. These certificates are automatically rotated by Istiod frequently (typically every 12-24 hours) without application downtime.
-3. **Authorization vs. Network Policy**:
-   - **NetworkPolicy (L3/L4)**: Enforced by the CNI at the Linux kernel level (eBPF/iptables). It filters packets based on IP addresses, ports, and pod labels. It operates *before* packets reach the Istio sidecar proxy, dropping malicious traffic early.
-   - **AuthorizationPolicy (L7)**: Enforced by the Envoy proxy (Istio sidecar). It evaluates cryptographic identity (SPIFFE ID). This stops lateral movement from compromised pods that might share an IP or node but lack the correct cryptographic identity.
-   - **Defense in Depth**: We layer both to catch distinct threats. The `NetworkPolicy` stops basic network scanning and port-level attacks, while the `AuthorizationPolicy` stops application-level lateral movement and spoofing.
-4. **Ingress & TLS Termination (Bonus)**: `gateway.yaml` defines an Istio Ingress Gateway to terminate TLS at the edge (`api.dodopayments.tech`). This ties the mesh boundary directly back to the **PCI Cardholder Data Environment (CDE)** scope by ensuring no plaintext card data enters the cluster boundary unencrypted, and all traffic from the edge to the internal services is re-encrypted via mTLS.
-5. **Canary Rollouts (Bonus)**: `canary.yaml` demonstrates a 90/10 traffic split using a `VirtualService` and `DestinationRule`, enabling safe, progressive delivery of the `ledger-api` without impacting production reliability.
+### Architecture
+
+```
+                    ┌──── Istio Ingress Gateway (TLS termination) ────┐
+                    │  api.dodopayments.tech:443 → ledger-api:8080    │
+                    └────────────────────┬───────────────────────────┘
+                                         │ mTLS
+┌─────────────────────────────────────────▼─────────────────────────────────┐
+│  Namespace: payments   │  mTLS: STRICT  │  AuthzPolicy: default-deny     │
+│                                                                           │
+│  ┌───────────────────────────┐        ┌───────────────────────────┐       │
+│  │ Pod: ledger-api           │        │ Pod: reporting             │       │
+│  │ ┌────────┐ ┌────────────┐│        │ ┌────────┐ ┌────────────┐ │       │
+│  │ │  App   │ │ Envoy      ││  mTLS  │ │  curl  │ │ Envoy      │ │       │
+│  │ │ :8080  │ │ Sidecar    ││◄───────│ │        │ │ Sidecar    │ │       │
+│  │ └────────┘ └────────────┘│        │ └────────┘ └────────────┘ │       │
+│  │ SPIFFE ID:               │        │ SPIFFE ID:                │       │
+│  │ spiffe://cluster.local/  │        │ spiffe://cluster.local/   │       │
+│  │  ns/payments/sa/         │        │  ns/payments/sa/reporting  │       │
+│  │  ledger-api-sa           │        │                            │       │
+│  └───────────────────────────┘        └───────────────────────────┘       │
+│                                                                           │
+│  NetworkPolicy (L3/L4): default-deny + allow reporting→ledger:8080       │
+└───────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. mTLS STRICT
+
+The `peer-auth.yaml` enforces `STRICT` mTLS on the entire `payments` namespace. This means:
+- Every connection **must** present a valid mTLS client certificate
+- Plaintext HTTP is **rejected** at the sidecar proxy level
+- This is verified using `istioctl authn tls-check`
+
+```bash
+$ istioctl authn tls-check ledger-api-pod.payments
+HOST:PORT                                  STATUS  SERVER  CLIENT  AUTHN POLICY      DESTINATION RULE
+ledger-api.payments.svc.cluster.local:8080 OK      STRICT  STRICT  default/payments  -
+
+# Plaintext request from outside the mesh → REJECTED
+$ kubectl exec -it unmeshed-pod -- curl http://ledger-api.payments:8080/health
+curl: (56) Recv failure: Connection reset by peer
+```
+
+### 2. Workload Certificate Lifecycle
+
+| Step | Description |
+|------|-------------|
+| **Trust Root** | Istiod generates a self-signed root CA certificate at installation (or uses a plugged-in CA like Vault, cert-manager) |
+| **CSR Generation** | When a pod starts, the Istio sidecar (Envoy) generates a private key and sends a Certificate Signing Request (CSR) to Istiod via the Secret Discovery Service (SDS) API |
+| **Identity Validation** | Istiod validates the pod's Kubernetes ServiceAccount token (bound token projected into the pod) against the Kubernetes API server |
+| **Certificate Issuance** | Istiod signs and returns an X.509 certificate containing the SPIFFE ID: `spiffe://cluster.local/ns/{namespace}/sa/{service-account}` |
+| **Rotation** | Certificates are automatically rotated every **12–24 hours** (configurable). The sidecar handles this transparently — zero application downtime |
+| **Revocation** | If a pod is deleted, its certificate is no longer valid. No CRL is needed because certificates are short-lived |
+
+### 3. Authorization Policies (Identity-Based, Not IP-Based)
+
+**Default-deny** is set first (empty `spec: {}`), which blocks all traffic in the namespace. Then explicit allows are added based on **SPIFFE workload identity**:
+
+```bash
+# Unauthorized service → BLOCKED (403)
+$ kubectl exec -it unauthorized-pod -n payments -- curl -s http://ledger-api:8080/health
+RBAC: access denied
+
+# Authorized `reporting` service → ALLOWED (200)
+$ kubectl exec -it reporting-pod -n payments -- curl -s http://ledger-api:8080/health
+{"status":"ok"}
+```
+
+This is superior to IP-based rules because:
+- IPs are ephemeral in Kubernetes (pods get new IPs on restart)
+- IPs can be spoofed
+- SPIFFE IDs are cryptographically bound to the ServiceAccount identity
+
+### 4. Defense-in-Depth: NetworkPolicy + AuthorizationPolicy
+
+| Layer | Enforced By | OSI Level | What It Catches | What It Misses |
+|-------|-------------|-----------|-----------------|----------------|
+| **NetworkPolicy** | CNI (Calico/Cilium) via iptables/eBPF | L3/L4 | Port scans, IP-based lateral movement, egress to external CIDRs | Cannot inspect HTTP headers, paths, or identity |
+| **AuthorizationPolicy** | Envoy sidecar proxy (Istio) | L7 | Identity spoofing, unauthorized API access, path-based attacks | Cannot block traffic before it reaches the sidecar (raw IP scans) |
+
+**Why both?** A compromised pod that somehow bypasses the Envoy sidecar (e.g., via a container escape) would still be blocked by the kernel-level NetworkPolicy. Conversely, a pod within the network that has IP-level access but lacks the correct cryptographic identity would be blocked by the AuthorizationPolicy.
+
+### 5. Istio Ingress Gateway with TLS Termination (Bonus)
+
+`gateway.yaml` terminates TLS at the mesh edge for `api.dodopayments.tech`. Traffic from the gateway to internal services is then re-encrypted via mTLS, ensuring:
+- External clients get standard HTTPS
+- Internal traffic never travels in plaintext
+- This maps directly to **PCI DSS Requirement 4.1**: encrypt cardholder data in transit
+
+### 6. Canary Release (Bonus)
+
+`canary.yaml` implements a 90/10 traffic split:
+- 90% → `stable` subset (current version)
+- 10% → `canary` subset (new version)
+
+This enables progressive rollouts with instant rollback by adjusting the weights.
+
+### 7. PCI CDE Scope (Bonus)
+
+The Istio mesh boundary defines the **Cardholder Data Environment (CDE)**:
+- All services handling PAN data (`ledger-api`) are inside the mesh
+- mTLS ensures encryption in transit (PCI DSS Req 4.1)
+- AuthorizationPolicy restricts access to only authorized services (PCI DSS Req 7.1)
+- NetworkPolicy provides network segmentation (PCI DSS Req 1.3)
+
+### Files
+
+| File | Purpose |
+|---|---|
+| `istio/peer-auth.yaml` | PeerAuthentication — mTLS STRICT enforcement |
+| `istio/authz-policy.yaml` | Default-deny + explicit ALLOW by SPIFFE identity |
+| `istio/network-policy.yaml` | Default-deny + explicit allows at L3/L4 |
+| `istio/gateway.yaml` | Istio Ingress Gateway with TLS termination |
+| `istio/canary.yaml` | VirtualService + DestinationRule for canary release |

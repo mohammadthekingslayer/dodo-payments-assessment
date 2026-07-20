@@ -6,8 +6,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/bhabani-dodo/ledger-api-assignment.git'
-    path: dodo-payments-assessment/task1/manifests
+    repoURL: 'https://github.com/mohammadthekingslayer/dodo-payments-assessment.git'
+    path: task1/manifests
     targetRevision: main
   destination:
     server: 'https://kubernetes.default.svc'
@@ -15,6 +15,6 @@ spec:
   syncPolicy:
     automated:
       prune: true
-      selfHeal: true # This enforces drift detection and auto-revert
+      selfHeal: true
     syncOptions:
     - CreateNamespace=true

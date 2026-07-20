@@ -1,6 +1,14 @@
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
+  name: default-deny-all
+  namespace: payments
+spec:
+  {}
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
   name: allow-reporting-to-ledger
   namespace: payments
 spec:
@@ -12,3 +20,7 @@ spec:
   - from:
     - source:
         principals: ["cluster.local/ns/payments/sa/reporting"]
+    to:
+    - operation:
+        methods: ["GET"]
+        ports: ["8080"]

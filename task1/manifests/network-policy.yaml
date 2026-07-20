@@ -32,7 +32,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-ledger-dns-egress
+  name: allow-ledger-dns
   namespace: payments
 spec:
   podSelector:
@@ -41,7 +41,8 @@ spec:
   policyTypes:
   - Egress
   egress:
-  - ports:
+  - to: []
+    ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
@@ -50,7 +51,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-reporting-egress
+  name: allow-reporting-to-ledger-egress
   namespace: payments
 spec:
   podSelector:
@@ -66,28 +67,9 @@ spec:
     ports:
     - protocol: TCP
       port: 8080
-  - ports:
+  - to: []
+    ports:
     - protocol: UDP
       port: 53
     - protocol: TCP
       port: 53
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-istio-control-plane
-  namespace: payments
-spec:
-  podSelector: {}
-  policyTypes:
-  - Egress
-  egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: istio-system
-    ports:
-    - protocol: TCP
-      port: 15012
-    - protocol: TCP
-      port: 15014
