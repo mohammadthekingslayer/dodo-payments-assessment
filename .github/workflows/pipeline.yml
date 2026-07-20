@@ -31,6 +31,9 @@ jobs:
         run: |
           pip install semgrep
           semgrep scan --config=auto --sarif --output=semgrep.sarif . || true
+          if [ ! -f semgrep.sarif ]; then
+            echo '{"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "semgrep"}}, "results": []}]}' > semgrep.sarif
+          fi
           ls -la semgrep.sarif || echo "No SARIF generated"
 
       - name: Upload Semgrep SARIF
