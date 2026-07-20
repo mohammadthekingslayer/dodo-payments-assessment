@@ -1,4 +1,4 @@
-# Dodo Payments — Security & DevOps Engineer Assessment
+# Dodo Payments — Security & DevOps Engineer Technical Assessment
 
 **Candidate:** Shaik Mohammad Wasim  
 **Email:** thebatmanfrommars@gmail.com  

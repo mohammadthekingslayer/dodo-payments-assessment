@@ -1,7 +1,7 @@
-# Engineering Write-Up: Securing the Ledger API
+# Dodo Payments — Security & DevOps Engineer Technical Assessment Write-Up
 
 **Candidate:** Shaik Mohammad Wasim  
-**Role:** Security & DevOps Engineer @ Dodo Payments
+**Role:** Security & DevOps Engineer
 
 ---
 
