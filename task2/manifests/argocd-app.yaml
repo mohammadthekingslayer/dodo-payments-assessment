@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ledger-api
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/bhabani-dodo/ledger-api-assignment.git'
+    path: dodo-payments-assessment/task1/manifests
+    targetRevision: main
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: payments
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true # This enforces drift detection and auto-revert
+    syncOptions:
+    - CreateNamespace=true

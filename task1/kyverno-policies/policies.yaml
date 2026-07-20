@@ -1,0 +1,70 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-pod-security
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: require-run-as-non-root
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "Running as root is not allowed. Set runAsNonRoot to true."
+        pattern:
+          spec:
+            securityContext:
+              runAsNonRoot: true
+            =(containers):
+              - =(securityContext):
+                  =(runAsNonRoot): true
+
+    - name: require-ro-rootfs
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "Root filesystem must be read-only."
+        pattern:
+          spec:
+            containers:
+            - securityContext:
+                readOnlyRootFilesystem: true
+
+    - name: disallow-latest-tag
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      validate:
+        message: "Using the :latest image tag is not allowed."
+        pattern:
+          spec:
+            containers:
+            - image: "!*:latest"
+
+    - name: check-image-signature
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      verifyImages:
+      - imageReferences:
+        - "*"
+        mutateDigest: true
+        verifyDigest: false
+        required: true
+        attestors:
+        - entries:
+          - keyless:
+              subject: "https://github.com/bhabani-dodo/ledger-api-assignment/.github/workflows/*"
+              issuer: "https://token.actions.githubusercontent.com"
+              rekor:
+                url: https://rekor.sigstore.dev

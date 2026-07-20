@@ -1,0 +1,29 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dev-role
+  namespace: payments
+rules:
+- apiGroups: ["", "apps", "networking.k8s.io"]
+  resources: ["pods", "pods/log", "deployments", "services", "ingress"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: operator-role
+  namespace: payments
+rules:
+- apiGroups: ["", "apps", "networking.k8s.io"]
+  resources: ["pods", "deployments", "services", "configmaps"]
+  verbs: ["get", "list", "watch", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: admin-role
+  namespace: payments
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]

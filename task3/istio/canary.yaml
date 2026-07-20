@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: ledger-api-dest
+  namespace: payments
+spec:
+  host: ledger-api
+  subsets:
+  - name: stable
+    labels:
+      version: v1
+  - name: canary
+    labels:
+      version: v2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: ledger-api-vs
+  namespace: payments
+spec:
+  hosts:
+  - "api.dodopayments.tech"
+  gateways:
+  - ledger-gateway
+  http:
+  - route:
+    - destination:
+        host: ledger-api
+        subset: stable
+      weight: 90
+    - destination:
+        host: ledger-api
+        subset: canary
+      weight: 10
