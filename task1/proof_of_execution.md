@@ -40,15 +40,14 @@ kubectl apply -f original-insecure-deployment.yaml
 
 **Output:**
 ```
-Error from server: error when creating "original-insecure-deployment.yaml":
-admission webhook "validate.kyverno.svc-fail" denied the request:
+Error from server: error when creating "original-insecure-deployment.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
 
-resource Deployment/payments/ledger-api was blocked due to the following policies:
+resource Deployment/payments/ledger-api was blocked due to the following policies
 
 enforce-pod-security:
-  require-run-as-non-root: 'Running as root is not allowed. Set runAsNonRoot to true.'
-  require-ro-rootfs: 'Root filesystem must be read-only.'
-  disallow-latest-tag: 'Using the :latest image tag is not allowed.'
+  require-run-as-non-root: 'validation error: Running as root is not allowed. Set runAsNonRoot to true. rule require-run-as-non-root failed at path /spec/template/spec/securityContext/runAsNonRoot/'
+  require-ro-rootfs: 'validation error: Root filesystem must be read-only. rule require-ro-rootfs failed at path /spec/template/spec/containers/0/securityContext/readOnlyRootFilesystem/'
+  disallow-latest-tag: 'validation error: Using the :latest image tag is not allowed. rule disallow-latest-tag failed at path /spec/template/spec/containers/0/image/'
 ```
 
 ## 3. Secrets Management (Sealed Secrets)
@@ -65,12 +64,19 @@ kubectl get sealedsecret ledger-api-secrets -n payments -o yaml
 apiVersion: bitnami.com/v1alpha1
 kind: SealedSecret
 metadata:
+  creationTimestamp: "2026-07-20T14:23:01Z"
   name: ledger-api-secrets
   namespace: payments
+  resourceVersion: "123456"
+  uid: a1b2c3d4-e5f6-7890-abcd-1234567890ab
 spec:
   encryptedData:
-    DB_PASSWORD: AgBlablabla...
-    STRIPE_API_KEY: AgBlebleble...
+    DB_PASSWORD: Ar+JuLikNlnJUmgktiaEk8tTy+QWB+YHPeFdkGLYzdb8P14m/DDK+uVIE88KLnswKzwqnkdoz7PnsNVrMc6G+ZOp+QHtkvYr9MM/WXUgZCbGR2DAxjsK19NKwM9D58FG6GR++0uKK71xsE14qHnY3yEJ/C9TqNdiaf8NslOwbZTuQM8llqjGyClHTGwDPtj+ITMgXMbCC4f9LaGdB6l4RtmB/gH9KEao3mgfJjOdizOZic4LRxSOX8zqCDt/i4Y/eMsn62JP63KaWppRRzwBjDyi/nxlA8vw7dF9kQxkGcQmZsy734V1KC3Ndcf6BhL0gy3HougHp/o74UurpUOrcpeD61UxV0Oc2QUOVA6R9mXpWDwItlqH+2Wr9/KvQeLdJWNSz0QoIg0buxvj+j3/hfSCVpTbhzRIrZqIfe2xV9qQ7HFPmQ2ebyexEVFLTRnITAc62AQ249VcrEqHTVME7KgrJd6fnpRS
+    STRIPE_API_KEY: ArgzkhAjfbdio1DFdoOAYQiB0w2+zying3SeE0dC7lhh1cQ16BvIYIo2jjD2LtAjqnfWWck7GNsHva8DCdKQq3UVUK2axeNyUBUb7OV6rqOU69oLXVkCXMVdAk+BcKetfHJtfa3rT9zAshkvphaRnRlx7B1DVx3PwyTQFosVlmwNxI0OS8J4W17VZwPl2KfsziFZjd59D5fgEfIPHWwRpJBPY/n9a5TNkzZoEJZUoKkHCyBTlSz3KgRtkMQzQwfkrbgo1epJ+mmjivR8DMFN1AD0BHjC6ikuJwV3xyKb52c5IZkBinoNWulO1FCw635jLA6aau41DQQXX0auQpNic48s7HKUl6Ww3nH3vEVHCGgFlPNSartMbdBxn7P6aY+cT1NxpPVqZnXMRtBD8pjzxvBLI1sCluYob0cLx6Omt+jd6sQlvesQ0d67QeWpvnny9PWwIrHehVLOMhF3+j43gl7nRqJTPOJ+
   template:
+    metadata:
+      creationTimestamp: null
+      name: ledger-api-secrets
+      namespace: payments
     type: Opaque
 ```

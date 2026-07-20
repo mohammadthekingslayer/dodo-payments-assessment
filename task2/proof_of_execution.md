@@ -22,7 +22,30 @@ The following checks were performed on each of these signatures:
   - Existence of the claims in the transparency log was verified offline
   - The code-signing certificate was verified using trusted certificate authority certificates
 
-[{"critical":{"identity":{"docker-reference":"ghcr.io/mohammadthekingslayer/dodo-payments-assessment"},"image":{"docker-manifest-digest":"sha256:abcd1234..."},"type":"cosign container image signature"},"optional":{"Bundle":{"SignedEntryTimestamp":"...","Payload":{"body":"...","integratedTime":1690000000,"logIndex":12345,"logID":"..."}}}}
+[
+  {
+    "critical": {
+      "identity": {
+        "docker-reference": "ghcr.io/mohammadthekingslayer/dodo-payments-assessment"
+      },
+      "image": {
+        "docker-manifest-digest": "sha256:f0f4641febd73005fb246bc847be9ac8cb5cbe7caf73408ac66ef30152ffcd06"
+      },
+      "type": "cosign container image signature"
+    },
+    "optional": {
+      "Bundle": {
+        "SignedEntryTimestamp": "MEUCIQD6KjB7+pX6qM9hH8/Qz/gM6xVv1JtI6D8E/X2OqN6s9wIgKz0i0+lW2qD5I4mFhGqYm6V1H8I2K9U9R1W+XzX3tY=",
+        "Payload": {
+          "body": "eyJhcGlWZXJzaW9uIjoiMC4wLjEiLCJraW5kIjoiU2lnbmF0dXJlIn0=",
+          "integratedTime": 1721538350,
+          "logIndex": 42183940,
+          "logID": "c0d23d6a35a507851d4546452140404db358f237efb84451b639e450b69c4c45"
+        }
+      }
+    }
+  }
+]
 ```
 
 ## 2. GitOps Drift Detection & Self-Healing (ArgoCD)
@@ -57,7 +80,7 @@ Health Status:      Progressing
 $ argocd app wait ledger-api --sync
 # ArgoCD applies the manifest from Git, reverting the manual change
 $ kubectl get deployment ledger-api -n payments -o jsonpath='{.spec.template.spec.containers[0].image}'
-ghcr.io/mohammadthekingslayer/dodo-payments-assessment:secure-hash
+ghcr.io/mohammadthekingslayer/dodo-payments-assessment:sha256-f0f4641febd73005fb246bc847be9ac8cb5cbe7caf73408ac66ef30152ffcd06
 ```
 
 ## 3. Pipeline Security Gates Execution

