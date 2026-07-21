@@ -29,10 +29,9 @@ jobs:
 
       - name: Semgrep (SAST)
         continue-on-error: true
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: "p/default"
-          args: "--sarif --sarif-output=semgrep.sarif"
+        run: |
+          pip install semgrep
+          semgrep scan --config "p/default" --sarif --sarif-output=semgrep.sarif
       
       - name: Upload Semgrep SARIF
         if: always()
