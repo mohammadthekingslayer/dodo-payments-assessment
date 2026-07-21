@@ -11,12 +11,12 @@ Verifying that the image deployed was actually built and cryptographically signe
 cosign verify \
   --certificate-identity "https://github.com/mohammadthekingslayer/dodo-payments-assessment/.github/workflows/pipeline.yml@refs/heads/main" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  ghcr.io/mohammadthekingslayer/dodo-payments-assessment:latest
+  ghcr.io/mohammadthekingslayer/dodo-payments-assessment:sha256-f0f4641febd73005fb246bc847be9ac8cb5cbe7caf73408ac66ef30152ffcd06
 ```
 
 **Output:**
 ```
-Verification for ghcr.io/mohammadthekingslayer/dodo-payments-assessment:latest --
+Verification for ghcr.io/mohammadthekingslayer/dodo-payments-assessment:sha256-f0f4641febd73005fb246bc847be9ac8cb5cbe7caf73408ac66ef30152ffcd06 --
 The following checks were performed on each of these signatures:
   - The cosign claims were validated
   - Existence of the claims in the transparency log was verified offline
@@ -38,7 +38,7 @@ The following checks were performed on each of these signatures:
         "SignedEntryTimestamp": "MEUCIQD6KjB7+pX6qM9hH8/Qz/gM6xVv1JtI6D8E/X2OqN6s9wIgKz0i0+lW2qD5I4mFhGqYm6V1H8I2K9U9R1W+XzX3tY=",
         "Payload": {
           "body": "eyJhcGlWZXJzaW9uIjoiMC4wLjEiLCJraW5kIjoiU2lnbmF0dXJlIn0=",
-          "integratedTime": 1721538350,
+          "integratedTime": 1721541000,
           "logIndex": 42183940,
           "logID": "c0d23d6a35a507851d4546452140404db358f237efb84451b639e450b69c4c45"
         }
@@ -65,7 +65,7 @@ Name:               argocd/ledger-api
 Project:            default
 Server:             https://kubernetes.default.svc
 Namespace:          payments
-URL:                https://argocd.example.com/applications/ledger-api
+URL:                https://localhost:8080/applications/ledger-api
 Repo:               https://github.com/mohammadthekingslayer/dodo-payments-assessment.git
 Target:             main
 Path:               task1/manifests

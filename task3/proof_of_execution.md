@@ -41,8 +41,9 @@ HTTP Status: 200
 
 **Test 2: Unauthorized Service (Different Pod in Mesh)**
 ```bash
-# Executing into a different meshed pod with a different ServiceAccount
-$ kubectl exec -it deploy/unauthorized-app -n payments -c client -- curl -s -w "\nHTTP Status: %{http_code}\n" http://ledger-api:8080/health
+# Dynamically launching a temporary pod into the mesh to test access from an unauthorized ServiceAccount
+$ kubectl run unauthorized-app --image=curlimages/curl -n payments --labels="app=unauthorized-app" --restart=Never -it --rm -- sh
+~ $ curl -s -w "\nHTTP Status: %{http_code}\n" http://ledger-api:8080/health
 
 RBAC: access denied
 HTTP Status: 403

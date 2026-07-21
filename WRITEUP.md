@@ -61,6 +61,7 @@ To satisfy PCI DSS segmentation requirements, I deployed **Istio** to establish 
 - **Encryption in Transit:** Enforced `STRICT` mTLS across the namespace, completely disabling plaintext communication.
 - **Identity over IP:** I implemented a default-deny `AuthorizationPolicy`. Instead of relying on spoofable IP addresses, access is explicitly granted based on **SPIFFE workload identity** (cryptographically tied to the Kubernetes ServiceAccount). 
 - **Defense in Depth:** I layered a standard Kubernetes `NetworkPolicy` underneath Istio. If an attacker manages to bypass the Envoy sidecar proxy, they are still blocked at the L3/L4 kernel level by the CNI.
+- **Gateway Evolution:** *Note on Task 1 vs Task 3:* The initial Nginx Ingress deployed in Task 1 is formally superseded by the Istio Ingress Gateway configured in Task 3. Once `STRICT` mTLS is enforced, the standard Nginx controller can no longer route plaintext traffic into the mesh, making the Istio Gateway the mandatory entrypoint.
 
 ## 5. Offensive Perspective (The Pentest)
 Putting on the attacker hat revealed exactly why these controls are necessary. During the penetration test, I discovered a **Critical YAML Deserialization RCE** chained with a **High severity SSRF**. 

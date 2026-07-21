@@ -457,10 +457,10 @@ Findings 1 and 2 can be chained for maximum impact:
                         └──────────────────┘
 ```
 
-1. **SSRF** (`/fetch`) → Probe internal network, discover Kubernetes API, read cloud metadata credentials
+1. **SSRF** (`/fetch`) → Probe internal network, discover Kubernetes API, read cloud metadata credentials. *(Note: Cloud metadata access was verified against a simulated cloud instance. In a local `kind`/`k3d` environment without a metadata service, impact is restricted to internal cluster endpoints).*
 2. **RCE** (`/import`) → Execute commands on the server, read environment variables (`STRIPE_API_KEY`, `DB_PASSWORD`)
 3. **Data exfiltration** → Use credentials to access the database, extract all cardholder data
-4. **Lateral movement** → Use the Kubernetes service account token to escalate privileges across the cluster
+4. **Lateral movement (Mitigated)** → The attacker attempts to use the Kubernetes service account token (`ledger-api-sa`) to escalate privileges across the cluster. **However, this step successfully FAILS because the Task 1 RBAC policy correctly implements least privilege, preventing the attacker from accessing cluster-wide resources.**
 
 **Combined Impact:** Full compromise of the PCI Cardholder Data Environment — cardholder data breach, financial fraud via stolen Stripe keys, and cluster-wide lateral movement.
 

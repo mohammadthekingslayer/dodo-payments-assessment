@@ -27,6 +27,8 @@ rules:
   resources: ["deployments"]
   verbs: ["get", "list", "watch", "update", "patch", "create"]
 - apiGroups: [""]
+  # ACCEPTED RISK: Granting pods/exec allows operators to read STRIPE_API_KEY/DB_PASSWORD
+  # directly from the environment. This is an accepted operational trade-off for debugging.
   resources: ["pods/exec"]
   verbs: ["create"]
 ---
@@ -43,3 +45,45 @@ rules:
 - apiGroups: ["rbac.authorization.k8s.io"]
   resources: ["roles", "rolebindings"]
   verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-rolebinding
+  namespace: payments
+subjects:
+- kind: Group
+  name: dodo:devs
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: dev-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: operator-rolebinding
+  namespace: payments
+subjects:
+- kind: Group
+  name: dodo:operators
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: operator-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: admin-rolebinding
+  namespace: payments
+subjects:
+- kind: Group
+  name: dodo:admins
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: admin-role
+  apiGroup: rbac.authorization.k8s.io

@@ -14,6 +14,7 @@ spec:
     metadata:
       labels:
         app: ledger-api
+        version: v1
     spec:
       serviceAccountName: ledger-api-sa
       securityContext:
@@ -22,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ledger-api
-          image: ghcr.io/bhabani-dodo/ledger-api@sha256:76dc607e4845a66a2811385a33e10f653738568f11f142be8c727a952d99adb0
+          image: ghcr.io/mohammadthekingslayer/dodo-payments-assessment:latest
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
