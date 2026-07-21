@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ledger-api
-          image: ghcr.io/mohammadthekingslayer/dodo-payments-assessment:latest
+          image: ghcr.io/mohammadthekingslayer/dodo-payments-assessment:d402ff8b45f8451becf2402526a7cbd94a7603ca
           imagePullPolicy: Always
           securityContext:
             runAsNonRoot: true
