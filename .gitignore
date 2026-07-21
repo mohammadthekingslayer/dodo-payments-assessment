@@ -1,3 +1,7 @@
 .DS_Store
 semgrep-env/
 semgrep-env/
+
+gitleaks
+fingerprints.txt
+semgrep.sarif
