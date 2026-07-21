@@ -12,6 +12,82 @@ This repository contains the complete solution for the Dodo Payments Security & 
 
 **Scenario:** A fast-moving team shipped `ledger-api` — a microservice handling cardholder-adjacent data — onto a shared cluster with plaintext secrets, a root container, and no network policy. It's in PCI DSS scope, and an audit is coming. The mission: harden it end to end, then put on the attacker hat.
 
+### 🟢 Proof of Execution: Secure CI/CD Pipeline
+The fully automated GitHub Actions pipeline has been successfully executed, passing all security gates (Gitleaks, Semgrep, Trivy) and signing the image via Cosign with SLSA provenance:
+- **[View the latest successful GitHub Actions Pipeline Run](https://github.com/mohammadthekingslayer/dodo-payments-assessment/actions/runs/29809468345)**
+
+---
+
+## Architecture Diagram
+
+```mermaid
+graph TD
+    %% Define styles
+    classDef actor fill:#f9f9f9,stroke:#333,stroke-width:2px;
+    classDef ext fill:#ffe6cc,stroke:#d79b00,stroke-width:2px;
+    classDef k8s fill:#e1d5e7,stroke:#9673a6,stroke-width:2px;
+    classDef istio fill:#d5e8d4,stroke:#82b366,stroke-width:2px;
+    classDef pod fill:#dae8fc,stroke:#6c8ebf,stroke-width:2px;
+    classDef pipeline fill:#fff2cc,stroke:#d6b656,stroke-width:2px;
+
+    %% External & Pipeline
+    Developer((Developer)):::actor
+    Git[GitHub Repo]:::pipeline
+    GHA[GitHub Actions]:::pipeline
+    GHCR[GHCR / Image Registry]:::ext
+    ArgoCD[ArgoCD GitOps]:::k8s
+
+    Developer -- "git push" --> Git
+    Git -- "trigger" --> GHA
+    GHA -- "build, scan, sign" --> GHCR
+    Git -- "pull manifests" --> ArgoCD
+    ArgoCD -- "sync & self-heal" --> Cluster
+
+    %% Kubernetes Cluster
+    subgraph Cluster[Local Kubernetes Cluster]
+        
+        %% Istio System
+        subgraph IstioSys[istio-system]
+            Gateway[Istio Ingress Gateway]:::istio
+            Istiod[Istiod Control Plane CA]:::istio
+        end
+        
+        %% Payments Namespace
+        subgraph PaymentsNs[payments namespace]
+            direction TB
+            
+            %% Security Policies
+            AuthZ[AuthorizationPolicy Default-Deny]:::k8s
+            NetPol[NetworkPolicy L3/L4 Default-Deny]:::k8s
+            
+            %% Ledger API Pod
+            subgraph LedgerPod[ledger-api pod]
+                LedgerApp[ledger-api container]:::pod
+                Envoy1[Envoy Sidecar]:::istio
+            end
+            
+            %% Reporting Pod
+            subgraph ReportingPod[reporting pod]
+                ReportingApp[curl container]:::pod
+                Envoy2[Envoy Sidecar]:::istio
+            end
+        end
+    end
+
+    %% Traffic Flow
+    Client((External Client)):::actor
+    Client -- "HTTPS" --> Gateway
+    Gateway -- "mTLS STRICT" --> Envoy1
+    Envoy1 -- "localhost" --> LedgerApp
+    
+    ReportingApp -- "localhost" --> Envoy2
+    Envoy2 -- "mTLS STRICT" --> Envoy1
+    
+    %% Certificate Provisioning
+    Istiod -. "SPIFFE ID / SDS" .-> Envoy1
+    Istiod -. "SPIFFE ID / SDS" .-> Envoy2
+```
+
 ---
 
 ## Repository Structure
