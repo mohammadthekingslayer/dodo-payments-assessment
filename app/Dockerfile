@@ -1,4 +1,4 @@
-FROM python:3.12-alpine3.19
+FROM python:3.12-alpine3.22
 
 RUN adduser -D appuser
 
@@ -11,4 +11,4 @@ COPY app.py .
 USER appuser
 EXPOSE 8080
 
-CMD ["python", "app.py"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
