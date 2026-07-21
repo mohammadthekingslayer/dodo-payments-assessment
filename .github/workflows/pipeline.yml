@@ -101,8 +101,18 @@ jobs:
         run: |
           # Sign the image keylessly
           cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          # Generate basic provenance (simulated SLSA via Cosign attest)
-          echo '{"builder":{"id":"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}}' > predicate.json
+          cat <<EOF > predicate.json
+          {
+            "builder": {"id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"},
+            "buildType": "https://github.com/${{ github.repository }}/.github/workflows/pipeline.yml",
+            "invocation": {
+              "configSource": {
+                "uri": "git+https://github.com/${{ github.repository }}@${{ github.ref }}",
+                "digest": {"sha1": "${{ github.sha }}"}
+              }
+            }
+          }
+          EOF
           cosign attest --yes --predicate predicate.json --type slsaprovenance ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
   deploy-gitops:
